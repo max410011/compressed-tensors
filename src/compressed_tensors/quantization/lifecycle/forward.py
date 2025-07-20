@@ -146,6 +146,7 @@ def fake_quantize(
     args: QuantizationArgs,
     g_idx: Optional[torch.Tensor] = None,
     global_scale: Optional[torch.Tensor] = None,
+    module: Optional[Module] = None,
 ) -> torch.Tensor:
     """
     Fake quantize the input tensor x by quantizing then dequantizing with
@@ -171,6 +172,7 @@ def fake_quantize(
         do_dequantize=True,
         g_idx=g_idx,
         global_scale=global_scale,
+        module=module,  # Pass module to save inputs and scales
     )
 
 
@@ -185,6 +187,7 @@ def _process_quantization(
     do_quantize: bool = True,
     do_dequantize: bool = True,
     global_scale: Optional[torch.Tensor] = None,
+    module: Optional[Module] = None,
 ) -> torch.Tensor:
     q_min, q_max = calculate_range(args, x.device)
     group_size = args.group_size
@@ -270,7 +273,17 @@ def _process_quantization(
             output = output.unsqueeze(0)
 
     else:  # covers channel, token and tensor strategies
+        # NOTE(max410011): Do fake quant here
         if do_quantize:
+            # Save inputs and scales
+            if module:
+                # Save inputs and scales at inference
+                if hasattr(module, "inputs"):
+                    module.inputs.append(x.detach().float().cpu())
+                    module.input_scales.append(scale.detach().float().cpu())
+            # print("Before quantization:")
+            # print(f"  x: {x[0, 0]}, scale: {scale[0, 0]}")
+            
             output = _quantize(
                 x=x,
                 scale=scale,
@@ -281,6 +294,15 @@ def _process_quantization(
                 dtype=dtype,
                 global_scale=global_scale,
             )
+            # Save quantized inputs
+            if module:
+                # Save quantized inputs at inference
+                if hasattr(module, "quantized_inputs"):
+                    module.quantized_inputs.append(output.detach().int().cpu())
+        
+            # print("After quantization:")
+            # print(f"  x: {output[0, 0]}")
+        
         if do_dequantize:
             output = _dequantize(
                 output if do_quantize else x,
@@ -313,6 +335,7 @@ def wrap_module_forward_quantized(module: Module, scheme: QuantizationScheme):
 
         if scheme.input_activations is not None:
             # prehook should calibrate activations before forward call
+            # NOTE(max410011): Here to do static/dynamic activation quantization
             input_ = forward_quantize(module, input_, "input", scheme.input_activations)
 
         if scheme.weights is not None and not compressed:
@@ -375,6 +398,8 @@ def forward_quantize(
         scale, zero_point = compute_dynamic_scales_and_zp(
             value=value, args=args, module=module, global_scale=global_scale
         )
+        # print(f"Scale shape: {scale.shape}, {scale[0, 0]}")
+        # print(f"value shape: {value.shape}, {value[0, 0]}")
     else:
         # static quantization - get scale and zero point from layer
         scale = getattr(module, f"{base_name}_scale")
@@ -387,6 +412,7 @@ def forward_quantize(
         args=args,
         g_idx=g_idx,
         global_scale=global_scale,
+        module=module,  # Pass module to save inputs and scales
     )
 
 

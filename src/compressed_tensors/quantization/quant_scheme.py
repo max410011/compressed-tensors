@@ -151,6 +151,25 @@ INT8_W8A8 = dict(
     ),
 )
 
+# 8 bit integer weights and 8 bit activations quantization
+INT8_W8A8_ASYM = dict(
+    weights=QuantizationArgs(
+        num_bits=8,
+        type=QuantizationType.INT,
+        strategy=QuantizationStrategy.CHANNEL,
+        symmetric=False,
+        dynamic=False,
+    ),
+    input_activations=QuantizationArgs(
+        num_bits=8,
+        type=QuantizationType.INT,
+        strategy=QuantizationStrategy.TOKEN,
+        symmetric=False,
+        dynamic=True,  # Static Quant for activation
+        observer=None,
+    ),
+)
+
 # 8 bit integer weights only quantization
 W8A16 = dict(
     weights=QuantizationArgs(
@@ -252,6 +271,7 @@ PRESET_SCHEMES = {
     "W4A16_ASYM": W4A16_ASYM,
     # Integer weight and activation schemes
     "W8A8": INT8_W8A8,
+    "W8A8_ASYM": INT8_W8A8_ASYM,  # static activation
     "INT8": INT8_W8A8,  # alias for W8A8
     "W4A8": INT8_W4A8,
     # Float weight and activation schemes

@@ -128,6 +128,7 @@ def initialize_module_for_quantization(
         with disable_hf_hook(module):
             # wrap forward call of module to perform
             # quantized actions based on calltime status
+            # NOTE(max410011): Here we wrap the module's forward method
             wrap_module_forward_quantized(module, scheme)
 
 

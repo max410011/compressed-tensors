@@ -93,12 +93,18 @@ class CompressedLinear(Linear):
                 module, CompressedLinear
             )
 
+        # NOTE(max410011): Add my dictionary to record inputs and scales
+        module.inputs = []
+        module.quantized_inputs = []
+        module.input_scales = []
+
         return module
 
     def forward(self, input: Tensor) -> Tensor:
         """
         Decompresses the weight, then runs the wrapped forward pass
         """
+        # NOTE(max410011): Decompress weight and set to FROZEN when first forward is called 
         if self.quantization_status == QuantizationStatus.COMPRESSED:
             weight_data = self.compressor.decompress_module(self)
             param = Parameter(weight_data, requires_grad=False)

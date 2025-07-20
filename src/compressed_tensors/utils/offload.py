@@ -251,6 +251,8 @@ def update_offload_parameter(
             f"Shape of parameter being updated {param.data.shape} does not match shape "
             f"of update data {data.shape}"
         )
+        # # FIXME: Fix shape mismatch bug for static activation observers
+        # data = data[0]
 
     # copy data into onloaded parameter if applicable
     if param.device != torch.device("meta") and data is not param.data:
